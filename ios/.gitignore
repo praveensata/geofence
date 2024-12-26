@@ -35,4 +35,4 @@ Runner/GeneratedPluginRegistrant.*
 
 
 # Ignore service account key
-geofencing_backend/serviceAccountKey.json
+geofencing_backend/serviceAccountKey.jug

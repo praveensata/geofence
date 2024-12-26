@@ -3,15 +3,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:logger/logger.dart';
 import 'services/geofence_service.dart';
 import 'services/notification_service.dart';
-import 'services/api_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/admin_dashboard.dart';
+import 'screens/dashboard_screen.dart'; // Import the new dashboard screen
 import 'firebase_options.dart'; // Import Firebase options
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,6 +70,7 @@ class MyApp extends StatelessWidget {
         '/attendance': (context) => AttendanceScreen(),
         '/profile': (context) => ProfileScreen(),
         '/admin': (context) => AdminDashboard(),
+        '/dashboard': (context) => DashboardScreen(),
       },
     );
   }
