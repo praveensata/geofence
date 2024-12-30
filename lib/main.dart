@@ -13,6 +13,7 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'services/api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,10 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await NotificationService.initialize();
+
+  final FirebaseAuth auth = FirebaseAuth.instance;
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final Logger logger = Logger();
 
   var status = await Permission.location.request();
   if (status.isGranted) {
@@ -29,6 +34,46 @@ void main() async {
   }
 
   runApp(MyApp());
+
+  // Ensure user data is set in Firestore when the app starts
+  auth.authStateChanges().listen((User? user) async {
+    if (user != null) {
+      await _setUserData(user.uid);
+    }
+  });
+}
+
+Future<void> _setUserData(String userId) async {
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final Logger logger = Logger();
+
+  try {
+    // Check if the document exists
+    DocumentSnapshot userSnapshot =
+        await firestore.collection('users').doc(userId).get();
+    if (!userSnapshot.exists) {
+      // Set initial user data
+      await firestore.collection('users').doc(userId).set({
+        'customUserId': 'user_custom_id_$userId', // Example custom user ID
+        'managerEmail':
+            'potti2255@gmail.com', // Your email address as manager email
+        // Add other user fields if needed
+      });
+      logger.i('User data set for userId: $userId');
+    } else {
+      // Ensure managerEmail is set even if the document exists
+      Map<String, dynamic> data = userSnapshot.data() as Map<String, dynamic>;
+      if (!data.containsKey('managerEmail')) {
+        await firestore.collection('users').doc(userId).update({
+          'managerEmail':
+              'potti2255@gmail.com', // Your email address as manager email
+        });
+        logger.i('managerEmail added for userId: $userId');
+      }
+    }
+  } catch (e) {
+    logger.e('Error setting user data: $e');
+  }
 }
 
 final logger = Logger();

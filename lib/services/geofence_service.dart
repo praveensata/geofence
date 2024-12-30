@@ -12,6 +12,7 @@ class GeofenceService {
   static const double collegeLongitude = 82.3786785; // your longitude here
   static final logger = Logger();
   static double totalDistance = 0.0; // Add a variable to track total distance
+  static Position? lastPosition; // Store the last position
 
   static Future<void> startGeofencing(Function onEnter, Function onExit) async {
     Geolocator.getPositionStream(
@@ -39,12 +40,10 @@ class GeofenceService {
   }
 
   static Future<void> _trackDistance(Position position) async {
-    Position? lastPosition;
-
     if (lastPosition != null) {
       double distance = Geolocator.distanceBetween(
-        lastPosition.latitude,
-        lastPosition.longitude,
+        lastPosition!.latitude,
+        lastPosition!.longitude,
         position.latitude,
         position.longitude,
       );
@@ -101,7 +100,14 @@ class GeofenceService {
       DocumentSnapshot userSnapshot =
           await firestore.collection('users').doc(authUserId).get();
       String customUserId = userSnapshot['customUserId'];
-      String managerEmail = userSnapshot['managerEmail']; // Add manager email
+      String? managerEmail;
+      var data = userSnapshot.data() as Map<String, dynamic>?;
+      if (data != null && data.containsKey('managerEmail')) {
+        managerEmail = data['managerEmail'];
+      } else {
+        managerEmail =
+            'potti2255@gmail.com'; // Default to your email if not present
+      }
 
       await firestore.collection('activity_logs').add({
         'userId': customUserId,
@@ -116,12 +122,10 @@ class GeofenceService {
       });
 
       // Send notification to manager
-      if (managerEmail != null) {
-        NotificationService.showNotification(
-          'Geofence Alert',
-          'Employee ${customUserId} has ${activity} the geofence area.',
-        );
-      }
+      NotificationService.showNotification(
+        'Geofence Alert',
+        'Employee ${customUserId} has ${activity} the geofence area.',
+      );
 
       logger.i('Activity logged: $activity');
     } catch (e) {
