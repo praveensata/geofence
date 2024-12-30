@@ -5,7 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:logger/logger.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   DashboardScreenState createState() => DashboardScreenState();
@@ -18,7 +18,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   final logger = Logger();
 
-  CalendarFormat _calendarFormat = CalendarFormat.month;
+  final CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 

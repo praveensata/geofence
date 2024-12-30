@@ -1,33 +1,35 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('app_icon'); // No file extension
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
     final InitializationSettings initializationSettings =
         InitializationSettings(
       android: initializationSettingsAndroid,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await _notificationsPlugin.initialize(initializationSettings);
   }
 
   static Future<void> showNotification(String title, String body) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'geofence_channel',
-      'Geofence Notifications',
-      channelDescription: 'Notifications for geofence entry/exit',
+      'your channel id',
+      'your channel name',
       importance: Importance.max,
       priority: Priority.high,
+      showWhen: false,
     );
+
     const NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
-    await flutterLocalNotificationsPlugin.show(
+    await _notificationsPlugin.show(
       0,
       title,
       body,

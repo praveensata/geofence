@@ -1,20 +1,64 @@
-import 'dart:io'; // Add this line
 import 'package:geolocator/geolocator.dart';
 import 'package:logger/logger.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+import 'notification_service.dart';
 
 class GeofenceService {
   static const double geofenceRadius = 100.0; // in meters
   static const double collegeLatitude = 17.7292098; // your latitude here
   static const double collegeLongitude = 82.3786785; // your longitude here
   static final logger = Logger();
+  static double totalDistance = 0.0; // Add a variable to track total distance
+
+  static Future<void> startGeofencing(Function onEnter, Function onExit) async {
+    Geolocator.getPositionStream(
+      locationSettings:
+          LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 50),
+    ).listen((Position position) {
+      _checkGeofence(position, onEnter, onExit);
+      _trackDistance(position); // Track distance
+    });
+  }
+
+  static Future<void> _checkGeofence(
+      Position position, Function onEnter, Function onExit) async {
+    double distance = Geolocator.distanceBetween(
+      collegeLatitude,
+      collegeLongitude,
+      position.latitude,
+      position.longitude,
+    );
+    if (distance <= geofenceRadius) {
+      onEnter();
+    } else {
+      onExit();
+    }
+  }
+
+  static Future<void> _trackDistance(Position position) async {
+    Position? lastPosition;
+
+    if (lastPosition != null) {
+      double distance = Geolocator.distanceBetween(
+        lastPosition.latitude,
+        lastPosition.longitude,
+        position.latitude,
+        position.longitude,
+      );
+      totalDistance += distance;
+      logger.i('Total Distance: $totalDistance meters');
+    }
+
+    lastPosition = position;
+  }
 
   static Future<bool> isWithinGeofence() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(accuracy: LocationAccuracy.high),
+        desiredAccuracy: LocationAccuracy.high,
       );
       double distance = Geolocator.distanceBetween(
         collegeLatitude,
@@ -24,7 +68,6 @@ class GeofenceService {
       );
       logger.i('Current Position: ${position.latitude}, ${position.longitude}');
       logger.i('Distance from Geofence Center: $distance meters');
-      logger.i('Geofence Radius: $geofenceRadius meters');
       return distance <= geofenceRadius;
     } catch (e) {
       logger.e('Geofence check failed: $e');
@@ -32,37 +75,16 @@ class GeofenceService {
     }
   }
 
-  static void checkGeofence(Function onEnter, Function onExit) async {
-    bool isWithin = await isWithinGeofence();
-    if (isWithin) {
-      onEnter();
-    } else {
-      onExit();
-    }
-  }
-
-  static Future<void> startGeofencing(Function onEnter, Function onExit) async {
-    Geolocator.getPositionStream(
-      locationSettings:
-          LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 50),
-    ).listen((Position position) {
-      checkGeofence(onEnter, onExit);
-    });
-  }
-
   static Future<void> logActivity(
-      String userId, String activity, String description) async {
-    final logger = Logger();
-    final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+      String authUserId, String activity, String description) async {
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
     final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
 
     try {
-      // Get location coordinates
       Position position = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(accuracy: LocationAccuracy.high),
+        desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Get device details
       String deviceModel = '';
       String osVersion = '';
 
@@ -76,8 +98,14 @@ class GeofenceService {
         osVersion = iosInfo.systemVersion ?? '';
       }
 
-      await _firestore.collection('activity_logs').add({
-        'userId': userId,
+      DocumentSnapshot userSnapshot =
+          await firestore.collection('users').doc(authUserId).get();
+      String customUserId = userSnapshot['customUserId'];
+      String managerEmail = userSnapshot['managerEmail']; // Add manager email
+
+      await firestore.collection('activity_logs').add({
+        'userId': customUserId,
+        'managerEmail': managerEmail, // Include manager email
         'timestamp': Timestamp.now(),
         'activity': activity,
         'description': description,
@@ -86,9 +114,38 @@ class GeofenceService {
         'deviceModel': deviceModel,
         'osVersion': osVersion,
       });
+
+      // Send notification to manager
+      if (managerEmail != null) {
+        NotificationService.showNotification(
+          'Geofence Alert',
+          'Employee ${customUserId} has ${activity} the geofence area.',
+        );
+      }
+
       logger.i('Activity logged: $activity');
     } catch (e) {
       logger.e('Error logging activity: $e');
+    }
+  }
+
+  static void onEnterGeofence() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      logger.i('Entered geofence');
+      NotificationService.showNotification(
+          'Geofence Alert', 'You have entered the geofence area.');
+      logActivity(user.uid, 'ENTER', 'Entered geofence');
+    }
+  }
+
+  static void onExitGeofence() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      logger.i('Exited geofence');
+      NotificationService.showNotification(
+          'Geofence Alert', 'You have exited the geofence area.');
+      logActivity(user.uid, 'EXIT', 'Exited geofence');
     }
   }
 }

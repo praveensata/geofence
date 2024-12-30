@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
 
 class AddUserDialog extends StatefulWidget {
   final Function(Map<String, dynamic>) onAddUser;
 
-  const AddUserDialog({Key? key, required this.onAddUser}) : super(key: key);
+  const AddUserDialog({super.key, required this.onAddUser});
 
   @override
   _AddUserDialogState createState() => _AddUserDialogState();
@@ -14,6 +12,8 @@ class AddUserDialog extends StatefulWidget {
 
 class _AddUserDialogState extends State<AddUserDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _customUserIdController =
+      TextEditingController(); // New controller for custom user ID
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _roleController = TextEditingController();
@@ -28,6 +28,16 @@ class _AddUserDialogState extends State<AddUserDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            TextFormField(
+              controller: _customUserIdController,
+              decoration: InputDecoration(labelText: 'User ID'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a user ID';
+                }
+                return null;
+              },
+            ),
             TextFormField(
               controller: _emailController,
               decoration: InputDecoration(labelText: 'Email'),
@@ -67,6 +77,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
           onPressed: () {
             if (_formKey.currentState!.validate()) {
               final userData = {
+                'customUserId': _customUserIdController.text,
                 'email': _emailController.text,
                 'password': _passwordController.text,
                 'role': _roleController.text,

@@ -8,8 +8,8 @@ import 'screens/register_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/admin_dashboard.dart';
-import 'screens/dashboard_screen.dart'; // Import the new dashboard screen
-import 'firebase_options.dart'; // Import Firebase options
+import 'screens/dashboard_screen.dart';
+import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'services/api_service.dart';

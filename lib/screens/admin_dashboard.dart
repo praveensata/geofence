@@ -5,7 +5,7 @@ import 'package:logger/logger.dart';
 import 'add_user_dialog.dart'; // Import the Add User Dialog
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({Key? key}) : super(key: key); // Added the key parameter
+  const AdminDashboard({super.key});
 
   @override
   _AdminDashboardState createState() => _AdminDashboardState();
@@ -16,9 +16,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Logger logger = Logger();
   bool _isLoading = true;
-  final List<Map<String, dynamic>> _users = []; // Made final
-  final List<Map<String, dynamic>> _attendanceStats = []; // Made final
-  final List<Map<String, dynamic>> _geofenceActivity = []; // Made final
+  final List<Map<String, dynamic>> _users = [];
+  final List<Map<String, dynamic>> _attendanceStats = [];
+  final List<Map<String, dynamic>> _geofenceActivity = [];
 
   @override
   void initState() {
@@ -53,7 +53,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         await _firestore.collection('attendance').get();
     List<Map<String, dynamic>> attendanceStats =
         attendanceSnapshot.docs.map((doc) {
-      return doc.data() as Map<String, dynamic>;
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id; // Add attendance ID to the data map
+      return data;
     }).toList();
     setState(() {
       _attendanceStats.clear();
@@ -63,10 +65,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _loadGeofenceActivity() async {
     QuerySnapshot geofenceSnapshot =
-        await _firestore.collection('geofence_activity').get();
+        await _firestore.collection('geofenceActivity').get();
     List<Map<String, dynamic>> geofenceActivity =
         geofenceSnapshot.docs.map((doc) {
-      return doc.data() as Map<String, dynamic>;
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id; // Add geofence activity ID to the data map
+      return data;
     }).toList();
     setState(() {
       _geofenceActivity.clear();
@@ -82,10 +86,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         password: userData['password'],
       );
 
-      String userId = userCredential.user!.uid;
+      String customUserId =
+          userData['customUserId']; // Custom user ID from the dialog
 
-      await _firestore.collection('users').doc(userId).set({
-        'id': userId,
+      await _firestore.collection('users').doc(customUserId).set({
+        'customUserId': customUserId, // Store the custom user ID
         'email': userData['email'],
         'role': userData['role'],
       });
