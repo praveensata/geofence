@@ -8,19 +8,19 @@ import 'notification_service.dart';
 
 class GeofenceService {
   static const double geofenceRadius = 100.0; // in meters
-  static const double collegeLatitude = 17.7292098; // your latitude here
-  static const double collegeLongitude = 82.3786785; // your longitude here
+  static const double collegeLatitude = 17.732036; // your latitude here
+  static const double collegeLongitude = 83.314367; // your longitude here
   static final logger = Logger();
-  static double totalDistance = 0.0; // Add a variable to track total distance
-  static Position? lastPosition; // Store the last position
+  static double totalDistance = 0.0;
+  static Position? lastPosition;
 
   static Future<void> startGeofencing(Function onEnter, Function onExit) async {
     Geolocator.getPositionStream(
       locationSettings:
-          LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 50),
+          LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 8),
     ).listen((Position position) {
       _checkGeofence(position, onEnter, onExit);
-      _trackDistance(position); // Track distance
+      _trackDistance(position);
     });
   }
 
@@ -50,7 +50,6 @@ class GeofenceService {
       totalDistance += distance;
       logger.i('Total Distance: $totalDistance meters');
     }
-
     lastPosition = position;
   }
 
@@ -124,7 +123,7 @@ class GeofenceService {
       // Send notification to manager
       NotificationService.showNotification(
         'Geofence Alert',
-        'Employee ${customUserId} has ${activity} the geofence area.',
+        'Employee $customUserId has $activity the geofence area.',
       );
 
       logger.i('Activity logged: $activity');
@@ -151,5 +150,10 @@ class GeofenceService {
           'Geofence Alert', 'You have exited the geofence area.');
       logActivity(user.uid, 'EXIT', 'Exited geofence');
     }
+  }
+
+  static void notifyUserOnExit() {
+    NotificationService.showNotification(
+        'Geofence Alert', 'You have exited the geofence area.');
   }
 }

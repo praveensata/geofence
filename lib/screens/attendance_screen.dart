@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/geofence_service.dart';
 
@@ -18,15 +19,29 @@ class AttendanceScreenState extends State<AttendanceScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final User? _user = FirebaseAuth.instance.currentUser;
   bool _isPresent = false;
+  bool _isGeofencingStarted = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeGeofenceMonitoring();
+    _checkGeofenceState();
   }
 
-  void _initializeGeofenceMonitoring() {
+  Future<void> _checkGeofenceState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool geofenceActive = prefs.getBool('isGeofenceActive') ?? false;
+    setState(() {
+      _isPresent = false; // Set to false for testing
+      _isGeofencingStarted = geofenceActive;
+    });
+    logger.i('Geofence active: $_isPresent'); // Add this log
+  }
+
+  void _startGeofencing() {
     GeofenceService.startGeofencing(_onEnterGeofence, _onExitGeofence);
+    setState(() {
+      _isGeofencingStarted = true;
+    });
   }
 
   void _onEnterGeofence() {
@@ -35,11 +50,6 @@ class AttendanceScreenState extends State<AttendanceScreen> {
       GeofenceService.logActivity(
           _user.uid, 'enter_geofence', 'User entered the geofence');
     }
-    if (mounted) {
-      setState(() {
-        _isPresent = true;
-      });
-    }
   }
 
   void _onExitGeofence() {
@@ -47,11 +57,13 @@ class AttendanceScreenState extends State<AttendanceScreen> {
     if (_user != null) {
       GeofenceService.logActivity(
           _user.uid, 'exit_geofence', 'User exited the geofence');
-    }
-    if (mounted) {
-      setState(() {
-        _isPresent = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isPresent = false;
+          _isGeofencingStarted = false;
+        });
+      }
+      GeofenceService.notifyUserOnExit();
     }
   }
 
@@ -59,48 +71,47 @@ class AttendanceScreenState extends State<AttendanceScreen> {
     if (_user == null || _isPresent) return;
 
     var status = await Permission.location.request();
-    if (!mounted) return; // Ensure widget is still mounted
+    if (!mounted) return;
 
     if (status.isGranted) {
       bool isWithinGeofence = await GeofenceService.isWithinGeofence();
-      if (!mounted) return; // Ensure widget is still mounted
+      if (!mounted) return;
 
       if (isWithinGeofence) {
         await ApiService().logAttendance(_user.uid, DateTime.now(), true);
         logger.i('Attendance logged');
         GeofenceService.logActivity(_user.uid, 'submit_attendance',
             'User submitted attendance and is present within geofence');
-        if (mounted) {
-          setState(() {
-            _isPresent = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('You are present.')),
-          );
-        }
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isGeofenceActive', true);
+        _startGeofencing();
+        setState(() {
+          _isPresent = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You are present.')),
+        );
       } else {
         logger.i('User is outside geofence');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'You are outside the geofence. You are marked as absent.')),
-          );
-        }
-      }
-    } else {
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content:
-                  Text('Location permissions are required to log attendance.')),
+              content: Text(
+                  'You are outside the geofence. You are marked as absent.')),
         );
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Location permissions are required to log attendance.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    logger
+        .i('Building widget: isPresent=$_isPresent'); // Log state during build
     return Scaffold(
       appBar: AppBar(
         title: Text('Attendance'),
@@ -117,10 +128,11 @@ class AttendanceScreenState extends State<AttendanceScreen> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            ElevatedButton(
-              onPressed: _isPresent ? null : _submitAttendance,
-              child: Text('Submit Attendance'),
-            ),
+            if (!_isPresent) // Only show the button if user is not present
+              ElevatedButton(
+                onPressed: _submitAttendance,
+                child: Text('Submit Attendance'),
+              ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pushNamed(context, '/dashboard');
